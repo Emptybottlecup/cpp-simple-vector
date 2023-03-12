@@ -7,8 +7,6 @@
 #include <utility>
 #include <iterator>
 
-using namespace std;
-
 
 class ReserveProxyObj {
 private:
@@ -30,9 +28,9 @@ ReserveProxyObj Reserve(size_t capacity_to_reserve) {
 template <typename Type>
 class SimpleVector {
 private:
-    ArrayPtr<Type> arr;
-    size_t size = 0;
-    size_t capacity = 0;
+   ArrayPtr<Type> arr;
+   size_t size = 0;
+   size_t capacity = 0;
 
 public:
     using Iterator = Type*;
@@ -44,13 +42,11 @@ public:
         Reserve(res.get_a());
     }
     
-    SimpleVector(const SimpleVector& other) {
+    SimpleVector(const SimpleVector& other):arr(other.size),size(other.size), capacity(other.capacity) {
         if (!other.IsEmpty()) {
               SimpleVector scum(other.capacity);
-              scum.size = other.size;
-              scum.capacity = other.capacity;
-              copy(other.begin(),other.end(),scum.begin());
-              swap(scum);
+              std::copy(other.begin(),other.end(),scum.begin());
+              arr.swap(scum.arr);
         }
 
     }
@@ -62,49 +58,39 @@ public:
     }
     
     SimpleVector(size_t size): arr(size),size(size),capacity(size) {
-        generate(begin(), end(), []{return Type();});
+        std::generate(begin(), end(), []{return Type();});
     }
     
-    SimpleVector(size_t size_, const Type& value): arr(size_){
-        fill(arr.Get(), arr.Get() + size_, value);
-        size = size_;
-        capacity = size_;
+    SimpleVector(size_t size_, const Type& value): arr(size_), size(size_), capacity(size_){
+        std::fill(arr.Get(), arr.Get() + size_, value);
     }
     
-    SimpleVector(size_t size_, Type&& value): arr(size_) {
+    SimpleVector(size_t size_, Type&& value): arr(size_), size(size_), capacity(size_) {
         SimpleVector<Type> scum(size_);
-        
-        for(int i = 0; i < size_; ++i) {
-            scum[i] = move(value);
-        }
-        
-        size = size_;
-        capacity = size_;
+        generate(scum.begin(),scum.end(),[value]{return move(value);});
         swap(scum);
     }
 
     SimpleVector(std::initializer_list<Type> init) : arr(init.size()),size(init.size()),capacity(init.size()) {
-        copy(init.begin(), init.end(), begin());
+        std::copy(init.begin(), init.end(), begin());
     }
     
     
     SimpleVector& operator=(const SimpleVector& rhs) {
-        if(!rhs.IsEmpty() && (rhs.arr).Get() != arr.Get()){
+        if((rhs.arr).Get() != arr.Get()){
             SimpleVector scum(rhs);
-            swap(scum); 
+            swap(scum);
         }
+        
         return *this;
     }
     
     SimpleVector& operator=(SimpleVector&& rhs) {
-        if( !rhs.IsEmpty() && (rhs.arr).Get() != arr.Get()){
+        if( rhs.arr.Get() != arr.Get()){
             SimpleVector scum(rhs);
-            size = move(rhs.size);
-            capacity = move(rhs.capacity);
-            rhs.size = 0;
-            rhs.capacity = 0;
+            size = std::exchange(rhs.size,size);
+            capacity = std::exchange(rhs.capacity,capacity);
             swap(scum);
-            
         }
         return *this;
     }
@@ -128,11 +114,13 @@ public:
 
     // Возвращает ссылку на элемент с индексом index
     Type& operator[](size_t index) noexcept {
+        assert(index < size);
         return arr[index];
     }
 
     // Возвращает константную ссылку на элемент с индексом index
     const Type& operator[](size_t index) const noexcept {
+        assert(index < size);
         return arr[index];
     }
 
@@ -140,7 +128,7 @@ public:
     // Выбрасывает исключение std::out_of_range, если index >= size
     Type& At(size_t index) {
         if(index >= size){
-            throw out_of_range("index > size");
+            throw std::out_of_range("index > size");
         }
         return arr[index];
     }
@@ -150,7 +138,7 @@ public:
     const Type& At(size_t index) const {
         
         if(index >= size) {
-            throw out_of_range("index > size");
+            throw std::out_of_range("index > size");
         }
         return arr[index];
     }
@@ -199,27 +187,27 @@ public:
             if(capacity == 0){
                 capacity = 1;
                 ArrayPtr<Type> scum(1);
-                scum[0] = move(value);
+                scum[0] = std::move(value);
                 arr.swap(scum);
                 size = 1;
                 return;
             }
             else {
                 ArrayPtr<Type> scum(capacity);
-                scum[0] = move(value);
+                scum[0] = std::move(value);
                 arr.swap(scum);
                 size = 1;
                 return;
             }
         }
         if (size < capacity) {
-            arr[size] = move(value);
+            arr[size] = std::move(value);
             ++size;
         }
         else {
             ArrayPtr<Type> scum(capacity * 2);
-            move(arr.Get(), arr.Get() + size, scum.Get());
-            scum[size] = move(value);
+            std::move(arr.Get(), arr.Get() + size, scum.Get());
+            scum[size] = std::move(value);
             arr.swap(scum);
             ++size;
             capacity = capacity * 2;
@@ -228,46 +216,45 @@ public:
     
     
     void PopBack() noexcept {
-        if(!IsEmpty()){
-            --size;
-        }
+        assert(size > 0);
+        --size;
     }
     
     void swap(SimpleVector& other) noexcept {
         arr.swap(other.arr);
-        size_t siz = size;
-        size_t cap = capacity;
+        size_t size_other = size;
+        size_t capacity_other = capacity;
         size = other.size;
-        other.size = siz;
+        other.size = size_other;
         capacity = other.capacity;
-        other.capacity = cap;
+        other.capacity = capacity_other;
     }
     
     void swap(SimpleVector&& other) noexcept {
         arr.swap(move(other.arr));
         size_t siz = size;
         size_t cap = capacity;
-        size = move(other.size);
+        size = std::move(other.size);
         other.size = siz;
-        capacity = move(other.capacity);
+        capacity = std::move(other.capacity);
         other.capacity = cap;
     }
     
     Iterator Erase(ConstIterator pos) {
-        if (IsEmpty()) {
-            return nullptr;
-        }
-        auto cop = distance(cbegin(), pos);
-        move(begin() + cop + 1, end(), begin() + cop);
+        assert(!IsEmpty());
+        assert(pos >= begin() && pos <= end());
+        auto distance = std::distance(cbegin(), pos);
+        std::move(begin() + distance + 1, end(), begin() + distance);
         --size;
-        return begin() + cop;
+        return begin() + distance;
     }
     
      Iterator Insert(ConstIterator pos, const Type& value) {
-        auto cop = std::distance(cbegin(), pos);
+     assert(pos >= begin() && pos <= end());
+        auto distance = std::distance(cbegin(), pos);
         if (capacity > size) {
-            copy(begin() + cop , end(),begin() + cop + 1 );
-            arr[cop] = value;
+            copy(begin() + distance , end(),begin() + distance + 1 );
+            arr[distance] = value;
             ++size;
         }
         else {
@@ -280,21 +267,22 @@ public:
             }
         
         SimpleVector<Type> scum(c_s);
-        copy(begin(), begin() + cop, scum.begin());
-        copy(begin() + cop, end(), scum.begin() + cop +1);
-        scum[cop] = value;
+        copy(begin(), begin() + distance, scum.begin());
+        copy(begin() + distance, end(), scum.begin() + distance + 1);
+        scum[distance] = value;
         arr.swap(scum.arr);
         ++size;
         capacity = c_s;
         }
-        return begin() + cop;
+        return begin() + distance;
     }
     
     Iterator Insert(ConstIterator pos, Type&& value) {
+    assert(pos >= begin() && pos <= end());
         auto cop = std::distance(cbegin(), pos);
         if (capacity > size) {
-            move(begin() + cop , end(),begin() + cop + 1 );
-            arr[cop] = move(value);
+            std::move(begin() + cop , end(),begin() + cop + 1 );
+            arr[cop] = std::move(value);
             ++size;
         }
         else {
@@ -307,9 +295,9 @@ public:
             }
        
             SimpleVector<Type> scum(c_s);
-            move(begin(), begin() + cop, scum.begin());
-            move(begin() + cop, end(), scum.begin() + cop +1);
-            scum[cop] = move(value);
+            std::move(begin(), begin() + cop, scum.begin());
+            std::move(begin() + cop, end(), scum.begin() + cop +1);
+            scum[cop] = std::move(value);
             arr.swap(scum.arr);
             ++size;
             capacity = c_s;
@@ -322,12 +310,12 @@ public:
             size = new_size;
         }
         else if(new_size <= capacity) {
-            generate(arr.Get() + size, arr.Get() + new_size, []{return Type();});
+            std::generate(arr.Get() + size, arr.Get() + new_size, []{return Type();});
             size = new_size;
         }
         else {
             SimpleVector<Type> arr_new(new_size * 2);
-            move(begin(),end(),arr_new.begin());
+            std::move(begin(),end(),arr_new.begin());
             arr.swap(arr_new.arr);
             capacity = new_size * 2;
             size = new_size;
@@ -345,7 +333,7 @@ public:
                 capacity = new_capacity;
             }
             else {
-                copy(begin(),end(),scum.Get());
+                std::copy(begin(),end(),scum.Get());
                 capacity = new_capacity;
             }
         }
@@ -391,8 +379,10 @@ public:
 
 template <typename Type>
 inline bool operator==(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
-    
-    return equal(lhs.cbegin(), lhs.cend(), rhs.cbegin());;
+    if(lhs.GetSize() == rhs.GetSize()){
+    return std::equal(lhs.cbegin(), lhs.cend(), rhs.cbegin());
+    }
+    return false;
 }
 
 template <typename Type>
@@ -404,7 +394,7 @@ inline bool operator!=(const SimpleVector<Type>& lhs, const SimpleVector<Type>& 
 template <typename Type>
 inline bool operator<(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
     
-    return lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
+    return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
 }
 
 template <typename Type>

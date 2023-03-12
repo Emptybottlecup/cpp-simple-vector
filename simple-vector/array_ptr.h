@@ -11,11 +11,8 @@ public:
     // Создаёт в куче массив из size элементов типа Type.
     // Если size == 0, поле raw_ptr_ должно быть равно nullptr
     explicit ArrayPtr(size_t size) {
-        if(size == 0){
-        
-        }
-        else{
-        raw_ptr_ = new Type [size];
+        if(size != 0){
+            raw_ptr_ = new Type [size];
         }
     }
 
@@ -24,15 +21,22 @@ public:
         raw_ptr_ = raw_ptr;
     }
 
-    // Запрещаем копирование
-    ArrayPtr(const ArrayPtr&) = delete;
+    
+    ArrayPtr(const ArrayPtr&) = delete; 
+    
+    ArrayPtr(ArrayPtr&& other){
+        raw_ptr_ = move(other.raw_ptr);
+    }
 
     ~ArrayPtr() {
        delete[] raw_ptr_;
     }
 
-    // Запрещаем присваивание
-    ArrayPtr& operator=(const ArrayPtr&) = delete;
+    ArrayPtr& operator=(const ArrayPtr&) = delete; 
+    
+    ArrayPtr& operator=(ArrayPtr&& other){
+        raw_ptr_ = move(other.raw_ptr);
+    }
 
     // Прекращает владением массивом в памяти, возвращает значение адреса массива
     // После вызова метода указатель на массив должен обнулиться
@@ -55,7 +59,7 @@ public:
     // Возвращает true, если указатель ненулевой, и false в противном случае
     explicit operator bool() const {
         if(raw_ptr_ != 0){
-            return true;
+        return true;
         }
         return false;
     }
@@ -74,7 +78,7 @@ public:
     }
     
     void swap(ArrayPtr&& other) noexcept {
-        Type* pt = raw_ptr_;
+       Type* pt = raw_ptr_;
         raw_ptr_ = other.raw_ptr_;
         other.raw_ptr_ = pt;
     }
